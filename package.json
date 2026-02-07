@@ -1,0 +1,34 @@
+{
+  "name": "howfar",
+  "version": "0.1.0",
+  "description": "NYC/Tri-State Transit Travel-Time Heat Map",
+  "license": "MIT",
+  "author": "Misha Wagner",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mishawagon/howfar.git"
+  },
+  "homepage": "https://github.com/mishawagon/howfar",
+  "keywords": [
+    "transit",
+    "isochrone",
+    "opentripplanner",
+    "clojurescript",
+    "leaflet",
+    "nyc"
+  ],
+  "scripts": {
+    "dev": "shadow-cljs watch app",
+    "release": "shadow-cljs release app",
+    "server": "shadow-cljs server",
+    "clean": "rm -rf public/js .shadow-cljs"
+  },
+  "devDependencies": {
+    "shadow-cljs": "^2.26.0"
+  },
+  "dependencies": {
+    "leaflet": "2.0.0-alpha.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}

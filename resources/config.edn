@@ -1,0 +1,21 @@
+{:server {:port #long #or [#env PORT 3001]
+          :host "0.0.0.0"}
+
+ :database {:dbtype "postgresql"
+            :dbname #or [#env DB_NAME "howfar"]
+            :host #or [#env DB_HOST "localhost"]
+            :port #long #or [#env DB_PORT 5432]
+            :username #or [#env DB_USER "howfar"]
+            :password #env DB_PASSWORD
+            :maximumPoolSize 10
+            :minimumIdle 2
+            :connectionTimeout 5000
+            :idleTimeout 600000}
+
+ :otp {:base-url #or [#env OTP_URL "http://localhost:8080"]
+       :timeout-ms 1440000}
+
+ :isochrone {:default-mode "transit"
+             :default-time "10:00:00"
+             :default-day-type "weekday"
+             :cutoff-minutes [15 30 45 60 90 120 150 180]}}

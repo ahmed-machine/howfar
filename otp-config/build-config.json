@@ -1,0 +1,5 @@
+{
+  "transitServiceStart": "-P3D",
+  "transitServiceEnd": "P30D",
+  "maxTransferDuration": "PT30M"
+}

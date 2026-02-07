@@ -1,0 +1,159 @@
+version: '3.8'
+
+x-otp-common: &otp-common
+  image: eclipse-temurin:21-jre
+  volumes:
+    - ./otp-data:/otp-data:ro,z
+    - ./otp-config/build-config.json:/otp-data/build-config.json:ro,z
+    - ./otp-config/otp-config.json:/otp-data/otp-config.json:ro,z
+    - ./otp-config/router-config.json:/otp-data/router-config.json:ro,z
+  working_dir: /otp-data
+  command: >
+    java
+    -Xms10g
+    -Xmx10g
+    -XX:MaxMetaspaceSize=256m
+    -XX:MaxDirectMemorySize=256m
+    -XX:+UseG1GC
+    -XX:+ExitOnOutOfMemoryError
+    -XX:+AlwaysPreTouch
+    -jar /otp-data/otp-2.5.0-shaded.jar
+    --load /otp-data
+    --serve
+  deploy:
+    resources:
+      limits:
+        memory: 12g
+      reservations:
+        memory: 10g
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD-SHELL", "curl -f http://localhost:8080/otp/ || exit 1"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 300s
+
+services:
+  # Nginx load balancer for OTP instances
+  otp:
+    image: nginx:alpine
+    container_name: howfar-otp
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./otp-config/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - otp1
+      - otp2
+      - otp3
+      - otp4
+      - otp5
+      - otp6
+      - otp7
+      - otp8
+      - otp9
+      - otp10
+      - otp11
+      - otp12
+      - otp13
+      - otp14
+      - otp15
+    restart: unless-stopped
+
+  # OTP 2.x instances (15 instances × 12GB limit = 180GB max)
+  # Memory breakdown per instance:
+  #   - Heap: 10GB max (-Xmx10g)
+  #   - Metaspace: 256MB cap
+  #   - Direct buffers: 256MB cap
+  #   - Thread stacks, GC, native: ~1.5GB
+  #   - Docker limit: 12GB (hard cap)
+  otp1:
+    <<: *otp-common
+    container_name: howfar-otp1
+    ports:
+      - "8081:8080"
+
+  otp2:
+    <<: *otp-common
+    container_name: howfar-otp2
+    ports:
+      - "8082:8080"
+
+  otp3:
+    <<: *otp-common
+    container_name: howfar-otp3
+    ports:
+      - "8083:8080"
+
+  otp4:
+    <<: *otp-common
+    container_name: howfar-otp4
+    ports:
+      - "8084:8080"
+
+  otp5:
+    <<: *otp-common
+    container_name: howfar-otp5
+    ports:
+      - "8085:8080"
+
+  otp6:
+    <<: *otp-common
+    container_name: howfar-otp6
+    ports:
+      - "8086:8080"
+
+  otp7:
+    <<: *otp-common
+    container_name: howfar-otp7
+    ports:
+      - "8087:8080"
+
+  otp8:
+    <<: *otp-common
+    container_name: howfar-otp8
+    ports:
+      - "8088:8080"
+
+  otp9:
+    <<: *otp-common
+    container_name: howfar-otp9
+    ports:
+      - "8089:8080"
+
+  otp10:
+    <<: *otp-common
+    container_name: howfar-otp10
+    ports:
+      - "8090:8080"
+
+  otp11:
+    <<: *otp-common
+    container_name: howfar-otp11
+    ports:
+      - "8091:8080"
+
+  otp12:
+    <<: *otp-common
+    container_name: howfar-otp12
+    ports:
+      - "8092:8080"
+
+  otp13:
+    <<: *otp-common
+    container_name: howfar-otp13
+    ports:
+      - "8093:8080"
+
+  otp14:
+    <<: *otp-common
+    container_name: howfar-otp14
+    ports:
+      - "8094:8080"
+
+  otp15:
+    <<: *otp-common
+    container_name: howfar-otp15
+    ports:
+      - "8095:8080"

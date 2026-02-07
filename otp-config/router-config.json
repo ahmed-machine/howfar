@@ -1,0 +1,19 @@
+{
+  "routingDefaults": {
+    "streetRoutingTimeout": "PT720S",
+    "maxDirectStreetDurationForMode": {
+      "BIKE": "PT180M"
+    },
+    "accessEgress": {
+      "maxDurationForMode": {
+        "BIKE": "PT180M"
+      }
+    }
+  },
+  "transit": {
+    "searchThreadPoolSize": 2
+  },
+  "server": {
+    "apiProcessingTimeout": "PT1200S"
+  }
+}

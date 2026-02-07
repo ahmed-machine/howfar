@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>howfar.nyc</title>
+
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="howfar.nyc">
+    <meta property="og:description" content="(isochrone) map showing how far you can get from any point in NYC in 3 hours.">
+    <meta property="og:image" content="https://howfar.nyc/img/banner.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://howfar.nyc">
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="howfar.nyc">
+    <meta name="twitter:description" content="(isochrone) map showing how far you can get from any point in NYC in 3 hours.">
+    <meta name="twitter:image" content="https://howfar.nyc/img/banner.png">
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@2.0.0-alpha.1/dist/leaflet.css"
+          crossorigin="" />
+
+    <!-- App CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div id="app">
+        <div class="loading-screen">
+            <!-- Clouds -->
+            <svg class="loading-cloud loading-cloud-1" viewBox="0 0 64 40" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12,35 Q4,35 4,26 Q4,18 12,16 Q14,6 26,6 Q37,6 38,16 Q46,12 52,20 Q58,28 50,35 Z" fill="rgba(255,255,255,0.3)"/>
+            </svg>
+            <svg class="loading-cloud loading-cloud-2" viewBox="0 0 80 45" xmlns="http://www.w3.org/2000/svg">
+                <path d="M14,40 Q2,40 2,28 Q2,18 14,16 Q17,4 34,4 Q49,4 50,16 Q60,10 70,18 Q80,26 72,40 Z" fill="rgba(255,255,255,0.35)"/>
+            </svg>
+            <svg class="loading-cloud loading-cloud-3" viewBox="0 0 100 48" xmlns="http://www.w3.org/2000/svg">
+                <path d="M15,42 Q0,42 0,30 Q0,18 12,16 Q16,2 36,2 Q53,2 56,14 Q66,6 78,14 Q90,22 84,36 Q82,42 72,42 Z" fill="rgba(255,255,255,0.25)"/>
+            </svg>
+
+            <h1>howfar.nyc</h1>
+
+            <!-- Bike -->
+            <div class="loading-bike">
+                <svg viewBox="13 38 76 48" xmlns="http://www.w3.org/2000/svg">
+                    <g class="loading-rear-wheel">
+                        <circle cx="30" cy="68" r="14" fill="none" stroke="white" stroke-width="3"/>
+                        <line x1="16" y1="68" x2="44" y2="68" stroke="white" stroke-width="0.75"/>
+                        <line x1="20.1" y1="58.1" x2="39.9" y2="77.9" stroke="white" stroke-width="0.75"/>
+                        <line x1="30" y1="54" x2="30" y2="82" stroke="white" stroke-width="0.75"/>
+                        <line x1="39.9" y1="58.1" x2="20.1" y2="77.9" stroke="white" stroke-width="0.75"/>
+                    </g>
+                    <g class="loading-front-wheel">
+                        <circle cx="72.5" cy="68" r="14" fill="none" stroke="white" stroke-width="3"/>
+                        <line x1="58.5" y1="68" x2="86.5" y2="68" stroke="white" stroke-width="0.75"/>
+                        <line x1="62.6" y1="58.1" x2="82.4" y2="77.9" stroke="white" stroke-width="0.75"/>
+                        <line x1="72.5" y1="54" x2="72.5" y2="82" stroke="white" stroke-width="0.75"/>
+                        <line x1="82.4" y1="58.1" x2="62.6" y2="77.9" stroke="white" stroke-width="0.75"/>
+                    </g>
+                    <polygon points="30,68 44,49 64,49 50,68" fill="none" stroke="white" stroke-width="3.5" stroke-linejoin="round"/>
+                    <line x1="42" y1="43.5" x2="50" y2="68" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                    <line x1="38" y1="43.5" x2="46" y2="43.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                    <g>
+                        <polyline points="64,49 64,42 70,42" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M 70,42 C 74,42 75,44 75,47 C 75,50 73,51 71,50" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"/>
+                    </g>
+                    <line x1="64" y1="49" x2="72.5" y2="68" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>
+            </div>
+
+            <!-- Road -->
+            <div class="loading-road-wrapper">
+                <div class="loading-road"></div>
+            </div>
+
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    <!-- App JS (includes Leaflet via npm) -->
+    <script src="/js/main.js"></script>
+</body>
+</html>
