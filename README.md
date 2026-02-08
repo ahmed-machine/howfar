@@ -1,6 +1,6 @@
 # howfar.nyc
 
-NYC/tri-State interactive isochrone map (transit + bike).
+NYC/tri-state interactive isochrone map (transit + bike). Project uses a Clojure/script stack with Leaflet and PostGIS/Postgres. It pre-computes the isochrone data using Open Trip Planner 2.5.
 
 ## Quick Start
 
@@ -13,7 +13,7 @@ NYC/tri-State interactive isochrone map (transit + bike).
 If you're computing isochrones:
 - Podman (or Docker) with Compose
 - Python 3.8+ (for data import scripts)
-- 180GB+ RAM recommended (OTP cluster runs 15 instances at 12GB each)
+- it's resource intensive and takes days to compute on a local machine (I created an OTP cluster runs 15 instances at 12GB each)
 
 ### 1. Setup Database
 
@@ -45,7 +45,7 @@ npm run dev
 Backend runs on http://localhost:3001
 Frontend runs on http://localhost:8280
 
-## Data Setup
+## Data
 
 Computing an isochrone map for every intersection in NYC is expensive. The total size of the DB is ~73GB. The computation is expensive given the regional spread and distance that can be covered over 3 hours. To do this effectively, we try to parallelise as much as possible.
 
@@ -64,7 +64,7 @@ Downloads 17 transit feeds:
 - CT Transit
 - SEPTA
 
-GTFS are an open transit specification that allows us to compute transit travel times.
+GTFS is an open transit specification that allows us to compute transit travel times with Open Trip Planner. There are other route planning libraries that might be more efficient, I haven't researched them thoroughly.
 
 ### 2. Download Open Street Maps data
 
@@ -83,7 +83,7 @@ curl -L -o otp-data/pennsylvania-latest.osm.pbf "https://download.geofabrik.de/n
 
 This downloads OTP 2.5.0 (if not present) and builds a routing graph from all GTFS feeds and tri-state OSM data. The graph build takes ~12 minutes and produces a ~1.1GB graph file.
 
-Note: OTP 2.5.0 is one of the last OTP versions which supports the particular API end points needed for this.
+Note: OTP 2.5.0 is one of the last OTP versions which supports the particular API endpoints needed for this.
 
 ### 4. Import Intersections
 
@@ -94,7 +94,7 @@ python scripts/import-osm.py otp-data/new-york-latest.osm.pbf
 
 ### 5. Start OpenTripPlanner Cluster
 
-The project runs 15 OTP instances behind an nginx load balancer for parallel processing:
+The project runs 15 OTP instances behind an nginx load balancer for parallel processing (you can edit the compose file accordingly):
 
 ```bash
 podman compose up -d

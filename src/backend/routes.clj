@@ -16,6 +16,14 @@
 (defn parse-double [s default]
   (try (Double/parseDouble s) (catch Exception _ default)))
 
+(def ^:private default-viewport {:min-lat 40.4 :max-lat 41.0 :min-lng -74.3 :max-lng -73.7})
+(def ^:private default-intersection-limit 500)
+(def ^:private default-transit-stop-limit 2000)
+(def ^:private default-nearby-radius 500)
+(def ^:private default-departure-time "10:00:00")
+(def ^:private default-day-type "weekday")
+(def ^:private default-mode "transit")
+
 (defn parse-int [s default]
   (try (Integer/parseInt s) (catch Exception _ default)))
 
@@ -29,12 +37,12 @@
 ;; Intersection endpoints
 (defn intersections-viewport-handler [request]
   (let [params (:query-params request)
-        min-lat (parse-double (get params "minLat") 40.4)
-        max-lat (parse-double (get params "maxLat") 41.0)
-        min-lng (parse-double (get params "minLng") -74.3)
-        max-lng (parse-double (get params "maxLng") -73.7)
-        limit (parse-int (get params "limit") 500)
-        mode (get params "mode" "transit")
+        min-lat (parse-double (get params "minLat") (:min-lat default-viewport))
+        max-lat (parse-double (get params "maxLat") (:max-lat default-viewport))
+        min-lng (parse-double (get params "minLng") (:min-lng default-viewport))
+        max-lng (parse-double (get params "maxLng") (:max-lng default-viewport))
+        limit (parse-int (get params "limit") default-intersection-limit)
+        mode (get params "mode" default-mode)
         sample-group (when-let [sg (get params "sampleGroup")]
                        (parse-int sg nil))
         intersections (db/get-intersections-in-viewport min-lat max-lat min-lng max-lng
@@ -72,9 +80,9 @@
   (let [params (:query-params request)
         lat (parse-double (get params "lat") nil)
         lng (parse-double (get params "lng") nil)
-        mode (get params "mode" "transit")
-        departure-time (get params "time" "10:00:00")
-        day-type (get params "dayType" "weekday")]
+        mode (get params "mode" default-mode)
+        departure-time (get params "time" default-departure-time)
+        day-type (get params "dayType" default-day-type)]
     (if (and lat lng)
       (if (= mode "compare")
         ;; Comparison mode: fetch both transit and bike isochrones
@@ -105,9 +113,9 @@
 (defn isochrone-handler [request]
   (let [id (parse-int (get-in request [:params :id]) nil)
         params (:query-params request)
-        mode (get params "mode" "transit")
-        departure-time (get params "time" "10:00:00")
-        day-type (get params "dayType" "weekday")]
+        mode (get params "mode" default-mode)
+        departure-time (get params "time" default-departure-time)
+        day-type (get params "dayType" default-day-type)]
     (if id
       (if (= mode "compare")
         ;; Comparison mode: fetch both transit and bike for this intersection
@@ -134,11 +142,11 @@
 ;; Transit stop endpoints
 (defn transit-stops-viewport-handler [request]
   (let [params (:query-params request)
-        min-lat (parse-double (get params "minLat") 40.4)
-        max-lat (parse-double (get params "maxLat") 41.0)
-        min-lng (parse-double (get params "minLng") -74.3)
-        max-lng (parse-double (get params "maxLng") -73.7)
-        limit (parse-int (get params "limit") 2000)
+        min-lat (parse-double (get params "minLat") (:min-lat default-viewport))
+        max-lat (parse-double (get params "maxLat") (:max-lat default-viewport))
+        min-lng (parse-double (get params "minLng") (:min-lng default-viewport))
+        max-lng (parse-double (get params "maxLng") (:max-lng default-viewport))
+        limit (parse-int (get params "limit") default-transit-stop-limit)
         stops (db/get-transit-stops-in-viewport min-lat max-lat min-lng max-lng
                                                  :limit limit)]
     (json-response {:stops stops
@@ -148,7 +156,7 @@
   (let [params (:query-params request)
         lat (parse-double (get params "lat") nil)
         lng (parse-double (get params "lng") nil)
-        radius (parse-int (get params "radius") 500)]
+        radius (parse-int (get params "radius") default-nearby-radius)]
     (if (and lat lng)
       (let [stops (db/get-nearby-transit-stops lat lng :radius-m radius)]
         (json-response {:stops stops
@@ -161,12 +169,6 @@
                           {:id "transit+bike" :name "Transit + Bike" :available true}
                           {:id "bike" :name "Bike" :available true}
                           {:id "walk" :name "Walk" :available false}]}))
-
-;; Bounding box endpoint
-(defn bbox-handler [_]
-  (if-let [bbox (db/get-isochrone-bbox)]
-    (json-response {:bbox bbox})
-    (json-response {:error "No isochrone data available"} :status 404)))
 
 ;; Stats endpoint
 (defn stats-handler [_]
@@ -197,7 +199,6 @@
     (GET "/transit/stops/viewport" [] transit-stops-viewport-handler)
     (GET "/transit/stops/nearby" [] nearby-stops-handler)
 
-    (GET "/bbox" [] bbox-handler)
     (GET "/modes" [] modes-handler)
     (GET "/stats" [] stats-handler))
 

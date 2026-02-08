@@ -1,22 +1,18 @@
 (ns backend.otp
   (:require [clj-http.client :as http]
-            [clj-http.conn-mgr :as conn-mgr]
             [cheshire.core :as json]
             [backend.config :as config]
             [clojure.tools.logging :as log]))
 
-;; Connection pool for HTTP requests to OTP instances
-;; Batch isochrone requests can take 10+ minutes (SPT walk + sampling + rendering).
-;; Use a long TTL to avoid evicting active connections.
-(def connection-manager
-  (delay
-    (conn-mgr/make-reusable-conn-manager
-     {:timeout 3600
-      :threads 40
-      :default-per-route 10
-      :insecure? false})))
+(def ^:private health-check-timeout-ms 5000)
+(def ^:private default-date "2026-01-30")
+(def ^:private default-time "10:00:00")
+(def ^:private default-timeout-ms 60000)
+(def ^:private tz-offset "-05:00")
+(def ^:private default-cutoff-minutes [15 30 45 60 90 120 150 180])
+(def ^:private weekend-dates {:saturday "2026-01-24" :sunday "2026-01-25"})
 
-(defn otp-url
+(defn- otp-url
   "Build OTP API URL. Optionally accepts a base-url override."
   ([path]
    (str (:base-url (config/otp-config)) path))
@@ -48,26 +44,26 @@
     (let [;; Use first direct instance for health check (more reliable than load balancer)
           url (str (first otp-instances) "/otp/")
           response (http/get url
-                             {:socket-timeout 5000
-                              :connection-timeout 5000})]
+                             {:socket-timeout health-check-timeout-ms
+                              :connection-timeout health-check-timeout-ms})]
       (= 200 (:status response)))
     (catch Exception e
       (log/warn "OTP health check failed:" (.getMessage e))
       false)))
 
-(defn get-single-isochrone
+(defn- get-single-isochrone
   "Compute a single isochrone cutoff from OTP 2.x TravelTime API.
    mode-params is a map of OTP query params (e.g. {:modes \"TRANSIT,WALK\"} or
-   {:modes \"TRANSIT\" :accessModes \"BICYCLE\" :egressModes \"BICYCLE\"})."
+   {:modes \"TRANSIT\" :accessModes \"BIKE\" :egressModes \"BIKE\"})."
   [lat lng cutoff-min & {:keys [mode-params date time timeout-ms base-url]
                           :or {mode-params {:modes "TRANSIT,WALK"}
-                               date "2026-01-30"
-                               time "10:00:00"
-                               timeout-ms 60000}}]
+                               date default-date
+                               time default-time
+                               timeout-ms default-timeout-ms}}]
   (let [url (if base-url
               (otp-url base-url "/otp/traveltime/isochrone")
               (otp-url "/otp/traveltime/isochrone"))
-        datetime (str date "T" time "-05:00")
+        datetime (str date "T" time tz-offset)
         cutoff (str "PT" cutoff-min "M")
         params (merge {:batch true
                        :location (str lat "," lng)
@@ -90,20 +86,20 @@
         (log/warn "OTP isochrone request failed for cutoff" cutoff-min ":" (.getMessage e))
         nil))))
 
-(defn get-multi-cutoff-isochrone
+(defn- get-multi-cutoff-isochrone
   "Compute all isochrone cutoffs in a single OTP request.
    OTP TravelTime API accepts multiple cutoff query params and computes the SPT
    once, extracting all isochrone boundaries from it.
    mode-params is a map of OTP query params (e.g. {:modes \"TRANSIT,WALK\"})."
   [lat lng cutoff-minutes & {:keys [mode-params date time timeout-ms base-url]
                               :or {mode-params {:modes "TRANSIT,WALK"}
-                                   date "2026-01-30"
-                                   time "10:00:00"
-                                   timeout-ms 60000}}]
+                                   date default-date
+                                   time default-time
+                                   timeout-ms default-timeout-ms}}]
   (let [url (if base-url
               (otp-url base-url "/otp/traveltime/isochrone")
               (otp-url "/otp/traveltime/isochrone"))
-        datetime (str date "T" time "-05:00")
+        datetime (str date "T" time tz-offset)
         cutoffs (mapv #(str "PT" % "M") cutoff-minutes)
         params (merge {:batch true
                        :location (str lat "," lng)
@@ -138,18 +134,18 @@
   (and (seq results)
        (> (count (distinct (map :geometry results))) 1)))
 
-(defn get-isochrone
+(defn- get-isochrone
   "Compute isochrones from OTP 2.x TravelTime API.
    Tries a single multi-cutoff request first (OTP computes SPT once for all cutoffs).
    Falls back to parallel per-cutoff requests if multi-cutoff returns identical shapes.
    mode-params is a map of OTP query params (e.g. {:modes \"TRANSIT,WALK\"})."
   [lat lng & {:keys [mode-params date time cutoff-minutes base-url]
               :or {mode-params {:modes "TRANSIT,WALK"}
-                   date "2026-01-30"  ; A Monday for weekday schedules (within GTFS validity)
-                   time "10:00:00"}}]
+                   date default-date  ; A Monday for weekday schedules (within GTFS validity)
+                   time default-time}}]
   (let [cutoff-minutes (or cutoff-minutes
                            (:cutoff-minutes (config/isochrone-config))
-                           [15 30 45 60 90 120 150 180])
+                           default-cutoff-minutes)
         timeout-ms (:timeout-ms (config/otp-config))
         ;; Try single multi-cutoff request first (1 SPT computation instead of 8)
         multi-results (get-multi-cutoff-isochrone lat lng cutoff-minutes
@@ -184,7 +180,7 @@
       {:success false
        :error "No valid isochrone results from OTP"})))
 
-(defn parse-isochrone-response
+(defn- parse-isochrone-response
   "Parse OTP 2.x TravelTime isochrone response into separate time-band geometries.
    OTP 2.x returns features with 'time' property in seconds (e.g., '1800' for 30 min)."
   [response]
@@ -214,17 +210,17 @@
   (let [otp-mode-params (case mode
                           "transit"      {:modes "TRANSIT,WALK"}
                           "transit+bike" {:modes "TRANSIT"
-                                          :accessModes "BICYCLE"
-                                          :egressModes "BICYCLE"}
-                          "bike"         {:modes "BICYCLE"}
+                                          :accessModes "BIKE"
+                                          :egressModes "BIKE"}
+                          "bike"         {:modes "BIKE"}
                           "walk"         {:modes "WALK"}
                           {:modes "TRANSIT,WALK"})
         ;; Pick appropriate date based on day type (2026 dates within GTFS validity)
         date (case day-type
-               "weekday" "2026-01-30"   ; Monday
-               "saturday" "2026-01-24"  ; Saturday
-               "sunday" "2026-01-25"    ; Sunday
-               "2026-01-30")
+               "weekday" default-date                    ; Monday
+               "saturday" (:saturday weekend-dates)      ; Saturday
+               "sunday" (:sunday weekend-dates)          ; Sunday
+               default-date)
         response (get-isochrone lat lng
                                 :mode-params otp-mode-params
                                 :date date

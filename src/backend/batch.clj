@@ -7,9 +7,17 @@
             [clojure.tools.logging :as log])
   (:gen-class))
 
+(def ^:private default-max-attempts 30)
+(def ^:private default-wait-interval-ms 10000)
+(def ^:private default-batch-size 100)
+(def ^:private default-parallelism 15)
+(def ^:private default-departure-time "10:00:00")
+(def ^:private default-day-type "weekday")
+(def ^:private default-mode "transit")
+
 (defn wait-for-otp
   "Wait for OTP to become available"
-  [& {:keys [max-attempts interval-ms] :or {max-attempts 30 interval-ms 10000}}]
+  [& {:keys [max-attempts interval-ms] :or {max-attempts default-max-attempts interval-ms default-wait-interval-ms}}]
   (log/info "Waiting for OTP to become available...")
   (loop [attempts 0]
     (cond
@@ -30,12 +38,12 @@
   "Run batch processing for a specific mode/time/day combination.
    :parallelism controls thread count (default: 15)"
   [& {:keys [mode departure-time day-type batch-size max-batches parallelism]
-      :or {mode "transit"
-           departure-time "10:00:00"
-           day-type "weekday"
-           batch-size 100
+      :or {mode default-mode
+           departure-time default-departure-time
+           day-type default-day-type
+           batch-size default-batch-size
            max-batches nil
-           parallelism 15}}]
+           parallelism default-parallelism}}]
   (log/info "Starting batch processing:"
             {:mode mode :departure-time departure-time :day-type day-type :parallelism parallelism})
 
@@ -165,12 +173,12 @@
                               (nil? command) ["run" []]
                               (#{"status" "run" "retry" "help" "--help" "-h"} command) [command (rest args)]
                               :else ["run" args])
-        mode (or (first rest-args) "transit")
-        departure-time (or (second rest-args) "10:00:00")
-        day-type (or (nth rest-args 2 nil) "weekday")
+        mode (or (first rest-args) default-mode)
+        departure-time (or (second rest-args) default-departure-time)
+        day-type (or (nth rest-args 2 nil) default-day-type)
         parallelism (if-let [p (nth rest-args 3 nil)]
                       (Integer/parseInt p)
-                      15)]
+                      default-parallelism)]
 
     (case command
       ("help" "--help" "-h")

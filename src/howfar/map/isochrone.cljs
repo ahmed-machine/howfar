@@ -2,6 +2,11 @@
   (:require ["leaflet" :as L]
             [howfar.config :as config]))
 
+(def ^:private default-band-color "#888")
+(def ^:private fill-opacity 1.0)
+(def ^:private border-weight 1.5)
+(def ^:private border-opacity 1.0)
+
 ;; Store isochrone layers for cleanup
 (defonce isochrone-layers (atom []))
 
@@ -20,17 +25,17 @@
    Optional color-override replaces the default band color."
   [geometry band & {:keys [color-override]}]
   (let [GeoJSON (.-GeoJSON L)
-        color (or color-override (get config/band-colors band "#888"))
+        color (or color-override (get config/band-colors band default-band-color))
         geojson (clj->js {:type "Feature"
                           :geometry geometry
                           :properties {:band (name band)}})]
     (new GeoJSON geojson
                  #js {:pane "isochrone"
                       :style #js {:fillColor color
-                                  :fillOpacity 1.0
+                                  :fillOpacity fill-opacity
                                   :color color
-                                  :weight 1.5
-                                  :opacity 1.0}})))
+                                  :weight border-weight
+                                  :opacity border-opacity}})))
 
 (defn update-isochrone-layers
   "Update isochrone layers on map.

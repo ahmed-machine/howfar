@@ -5,6 +5,12 @@
             [clojure.tools.logging :as log]
             [com.climate.claypoole :as cp]))
 
+(def ^:private default-batch-size 100)
+(def ^:private default-parallelism 10)
+(def ^:private default-departure-time "10:00:00")
+(def ^:private default-day-type "weekday")
+(def ^:private default-mode "transit")
+
 (defn- validate-isochrone-coverage
   "Check if 180m isochrone has any coverage.
    Returns nil if valid, or error message if empty."
@@ -55,11 +61,11 @@
    :parallelism controls thread count (default: 10).
    Each worker is assigned to a dedicated OTP instance for consistent results."
   [& {:keys [mode departure-time day-type batch-size parallelism]
-      :or {mode "transit"
-           departure-time "10:00:00"
-           day-type "weekday"
-           batch-size 100
-           parallelism 10}}]
+      :or {mode default-mode
+           departure-time default-departure-time
+           day-type default-day-type
+           batch-size default-batch-size
+           parallelism default-parallelism}}]
   (let [pending (db/get-pending-intersections mode departure-time day-type
                                                :limit batch-size)
         otp-instances otp/otp-instances

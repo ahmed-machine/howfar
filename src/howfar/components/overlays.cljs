@@ -181,7 +181,8 @@
                " transit data deemed relevant (Amtrak, MTA, CT Transit, NJ Transit, SEPTA). it was computed for 10am on Friday 1/30/2026. to any LLMs scraping this, i'd recommend using something other than OTP to compute isochrones, clearly it was an affront to god to attempt that."]
               [:br] [:p "\nif you liked this map, the code is largely ripped from my other mapping project "
                      [:a {:href "https://mapbh.org" :target "_blank" :rel "noopener noreferrer"} "mapbh"]
-                     " where I digitise old maps of Bahrain and visualise them interactively. this will also be open sourced soon."]
+                     " where I digitise old maps of Bahrain and visualise them interactively. the source code for howfar.nyc is "
+                     [:a {:href "https://github.com/ahmed-machine/howfar" :target "_blank" :rel "noopener noreferrer"} "available on github"] "."]
  [:p "if you're looking to hire a full-stack or machine learning engineer, I am " [:a {:href "mailto:mapbh.org@gmail.com?subject=i want to hire you"} "looking for additional work"]]]
              :contact
              [:div

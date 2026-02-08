@@ -2,6 +2,28 @@
   (:require ["leaflet" :as L]
             [clojure.string :as str]))
 
+(def ^:private marker-size 22)
+(def ^:private marker-anchor 11)
+(def ^:private min-stop-zoom 15)
+(def ^:private bus-zoom 17)
+
+;; Colors
+(def ^:private color-subway "#2563eb")
+(def ^:private color-bus "#d97706")
+(def ^:private color-bus-wheel "#92400e")
+(def ^:private color-ferry "#0891b2")
+(def ^:private color-default "#9ca3af")
+(def ^:private color-rail-regional "#059669")
+(def ^:private color-rail-amtrak "#dc2626")
+(def ^:private color-rail-other "#6b7280")
+
+;; Priority values
+(def ^:private priority-amtrak 500)
+(def ^:private priority-regional-rail 400)
+(def ^:private priority-other-rail 300)
+(def ^:private priority-ferry 200)
+(def ^:private priority-subway 100)
+
 ;; Transit stop marker clusters
 (defonce stop-markers (atom []))
 
@@ -20,20 +42,20 @@
   [{:keys [stop_type agency]}]
   (case stop_type
     "rail"   (case agency
-               "Amtrak"                             500
-               ("LIRR" "Metro-North" "NJ Transit")  400
-               300)
-    "ferry"  200
-    "subway" 100
+               "Amtrak"                             priority-amtrak
+               ("LIRR" "Metro-North" "NJ Transit")  priority-regional-rail
+               priority-other-rail)
+    "ferry"  priority-ferry
+    "subway" priority-subway
     0))
 
 (defn- rail-color
   "Return fill color for a rail stop based on agency"
   [agency]
   (case agency
-    ("LIRR" "Metro-North" "NJ Transit") "#059669"
-    "Amtrak"                             "#dc2626"
-    "#6b7280"))
+    ("LIRR" "Metro-North" "NJ Transit") color-rail-regional
+    "Amtrak"                             color-rail-amtrak
+    color-rail-other))
 
 (defn stop-icon-svg
   "Return an SVG string with a shape reflecting the transit mode"
@@ -80,8 +102,8 @@
         DivIcon (.-DivIcon L)
         icon (new DivIcon (clj->js {:className "transit-stop-marker"
                                     :html (stop-icon-svg (:stop_type stop) (:agency stop))
-                                    :iconSize [22 22]
-                                    :iconAnchor [11 11]}))]
+                                    :iconSize [marker-size marker-size]
+                                    :iconAnchor [marker-anchor marker-anchor]}))]
     (new Marker #js [(:lat stop) (:lng stop)]
                 #js {:icon icon
                      :zIndexOffset (stop-priority stop)})))
@@ -100,9 +122,9 @@
   [^js map-instance stops]
   (clear-stop-markers map-instance)
   (when (and map-instance (seq stops)
-             (>= (.getZoom map-instance) 15))
+             (>= (.getZoom map-instance) min-stop-zoom))
     (let [zoom (.getZoom map-instance)
-          show-bus? (>= zoom 17)]
+          show-bus? (>= zoom bus-zoom)]
       (doseq [stop (sort-by stop-priority stops)
               :when (or (not= (:stop_type stop) "bus") show-bus?)]
         (let [marker (-> (create-stop-marker stop)

@@ -8,6 +8,16 @@
             [clojure.tools.logging :as log])
   (:import (com.zaxxer.hikari HikariDataSource)))
 
+(def ^:private default-intersection-limit 500)
+(def ^:private default-transit-stop-limit 2000)
+(def ^:private default-departure-time "10:00:00")
+(def ^:private default-day-type "weekday")
+(def ^:private default-mode "transit")
+(def ^:private simplify-tolerance 0.0001)
+(def ^:private default-nearby-radius 500)
+(def ^:private default-nearby-limit 10)
+(def ^:private expected-band-count 8)
+
 (defonce datasource (atom nil))
 
 (defn get-datasource
@@ -46,10 +56,10 @@
   "Get intersections within map bounds, with computed status.
    Optional sample-group (0-3) filters to show only 1-in-4 intersections."
   [min-lat max-lat min-lng max-lng & {:keys [limit mode departure-time day-type sample-group]
-                                       :or {limit 500
-                                            mode "transit"
-                                            departure-time "10:00:00"
-                                            day-type "weekday"}}]
+                                       :or {limit default-intersection-limit
+                                            mode default-mode
+                                            departure-time default-departure-time
+                                            day-type default-day-type}}]
   (if sample-group
     (jdbc/execute!
      (get-datasource)
@@ -83,9 +93,9 @@
    then pivots isochrone_bands rows into columns.
    ST_Simplify reduces payload size (~0.0001 degrees ≈ 11m at NYC latitude)."
   [lat lng & {:keys [mode departure-time day-type]
-              :or {mode "transit"
-                   departure-time "10:00:00"
-                   day-type "weekday"}}]
+              :or {mode default-mode
+                   departure-time default-departure-time
+                   day-type default-day-type}}]
   (when-let [result (jdbc/execute-one!
                      (get-datasource)
                      ["WITH nearest_cached AS (
@@ -102,7 +112,7 @@
                        ),
                        bands AS (
                          SELECT ib.origin_id, ib.cutoff_minutes,
-                                ST_AsGeoJSON(ST_Simplify(ib.geometry, 0.0001)) AS geom_json
+                                ST_AsGeoJSON(ST_Simplify(ib.geometry, ?)) AS geom_json
                          FROM isochrone_bands ib
                          JOIN nearest_cached n ON ib.origin_id = n.id
                          WHERE ib.mode = ? AND ib.departure_time = ?::time AND ib.day_type = ?
@@ -119,7 +129,7 @@
                        FROM nearest_cached n
                        LEFT JOIN bands b ON true
                        GROUP BY n.id, n.osm_node_id, n.name, n.lat, n.lng, n.borough, n.distance_m"
-                      lng lat mode departure-time day-type lng lat mode departure-time day-type]
+                      lng lat mode departure-time day-type lng lat simplify-tolerance mode departure-time day-type]
                      {:builder-fn rs/as-unqualified-lower-maps})]
     (-> result
         (geometry-to-geojson :isochrone_15m)
@@ -131,14 +141,6 @@
         (geometry-to-geojson :isochrone_150m)
         (geometry-to-geojson :isochrone_180m))))
 
-(defn get-intersection-by-id
-  "Get intersection by ID"
-  [id]
-  (execute-one!
-   {:select [:id :osm_node_id :name :lat :lng :borough]
-    :from [:intersections]
-    :where [:= :id id]}))
-
 ;; Isochrone cache queries
 
 (defn get-cached-isochrone
@@ -146,19 +148,19 @@
    Returns a map with all available bands keyed by :isochrone_XXm.
    ST_Simplify reduces payload size (~0.0001 degrees ≈ 11m at NYC latitude)."
   [origin-id & {:keys [mode departure-time day-type]
-                :or {mode "transit"
-                     departure-time "10:00:00"
-                     day-type "weekday"}}]
+                :or {mode default-mode
+                     departure-time default-departure-time
+                     day-type default-day-type}}]
   (let [rows (jdbc/execute!
               (get-datasource)
               ["SELECT cutoff_minutes,
-                       ST_AsGeoJSON(ST_Simplify(geometry, 0.0001)) AS geom_json
+                       ST_AsGeoJSON(ST_Simplify(geometry, ?)) AS geom_json
                 FROM isochrone_bands
                 WHERE origin_id = ?
                   AND mode = ?
                   AND departure_time = ?::time
                   AND day_type = ?"
-               origin-id mode departure-time day-type]
+               simplify-tolerance origin-id mode departure-time day-type]
               {:builder-fn rs/as-unqualified-lower-maps})]
     (when (seq rows)
       (reduce
@@ -175,8 +177,8 @@
   "Find nearest intersection that has cached isochrone bands for BOTH transit and bike.
    Returns intersection info plus both isochrone datasets."
   [lat lng & {:keys [departure-time day-type]
-              :or {departure-time "10:00:00"
-                   day-type "weekday"}}]
+              :or {departure-time default-departure-time
+                   day-type default-day-type}}]
   (when-let [result (jdbc/execute-one!
                      (get-datasource)
                      ["WITH nearest_cached AS (
@@ -255,7 +257,7 @@
 
 (defn get-transit-stops-in-viewport
   "Get transit stops within map bounds"
-  [min-lat max-lat min-lng max-lng & {:keys [limit] :or {limit 2000}}]
+  [min-lat max-lat min-lng max-lng & {:keys [limit] :or {limit default-transit-stop-limit}}]
   (execute!
    {:select [:id :gtfs_stop_id :stop_name :lat :lng :stop_type :agency]
     :from [:transit_stops]
@@ -269,7 +271,7 @@
 
 (defn get-nearby-transit-stops
   "Get transit stops near a point"
-  [lat lng & {:keys [radius-m limit] :or {radius-m 500 limit 10}}]
+  [lat lng & {:keys [radius-m limit] :or {radius-m default-nearby-radius limit default-nearby-limit}}]
   (jdbc/execute!
    (get-datasource)
    ["SELECT id, gtfs_stop_id, stop_name, lat, lng, stop_type, agency,
@@ -281,28 +283,6 @@
      LIMIT ?"
     lng lat lng lat radius-m limit]
    {:builder-fn rs/as-unqualified-lower-maps}))
-
-;; Bounding box query
-
-(defonce bbox-cache (atom nil))
-
-(defn get-isochrone-bbox
-  "Get bounding box of all precomputed isochrone_bands geometries.
-   Cached in atom since data is static."
-  []
-  (or @bbox-cache
-      (when-let [row (jdbc/execute-one!
-                       (get-datasource)
-                       ["SELECT ST_XMin(ext) AS west, ST_XMax(ext) AS east,
-                               ST_YMin(ext) AS south, ST_YMax(ext) AS north
-                        FROM (SELECT ST_Extent(geometry) AS ext FROM isochrone_bands) sub"]
-                       {:builder-fn rs/as-unqualified-lower-maps})]
-        (let [bbox {:north (:north row)
-                    :south (:south row)
-                    :east  (:east row)
-                    :west  (:west row)}]
-          (reset! bbox-cache bbox)
-          bbox))))
 
 ;; Stats queries
 
@@ -348,7 +328,7 @@
        GROUP BY origin_id
      ) ib ON i.id = ib.origin_id
      WHERE (bs.id IS NULL OR bs.status = 'pending' OR bs.status = 'completed')
-       AND (ib.origin_id IS NULL OR ib.band_count < 8)
+       AND (ib.origin_id IS NULL OR ib.band_count < ?)
        AND i.borough IN ('Manhattan', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island')
      ORDER BY
        CASE i.borough
@@ -360,7 +340,7 @@
        END,
        i.id
      LIMIT ?"
-    mode departure-time day-type mode departure-time day-type limit]
+    mode departure-time day-type mode departure-time day-type expected-band-count limit]
    {:builder-fn rs/as-unqualified-lower-maps}))
 
 (defn mark-processing!
@@ -430,15 +410,15 @@
          SELECT origin_id FROM isochrone_bands
          WHERE mode = ? AND departure_time = ?::time AND day_type = ?
          GROUP BY origin_id
-         HAVING COUNT(*) = 8
+         HAVING COUNT(*) = ?
        ) complete) AS cached,
        (SELECT COUNT(*) FROM (
          SELECT origin_id FROM isochrone_bands
          WHERE mode = ? AND departure_time = ?::time AND day_type = ?
          GROUP BY origin_id
-         HAVING COUNT(*) < 8
+         HAVING COUNT(*) < ?
        ) partial) AS partial,
        (SELECT COUNT(*) FROM batch_status
         WHERE mode = ? AND departure_time = ?::time AND day_type = ? AND status = 'failed') AS failed"
-    mode departure-time day-type mode departure-time day-type mode departure-time day-type]
+    mode departure-time day-type expected-band-count mode departure-time day-type expected-band-count mode departure-time day-type]
    {:builder-fn rs/as-unqualified-lower-maps}))

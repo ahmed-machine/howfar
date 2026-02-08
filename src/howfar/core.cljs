@@ -19,7 +19,6 @@
   []
   (rf/dispatch-sync [:initialize-db])
   (rf/dispatch [:keyboard/add-listener])
-  (rf/dispatch [:api/fetch-bbox])
   (rdom/render [app] (.getElementById js/document "app")))
 
 (defn ^:export reload

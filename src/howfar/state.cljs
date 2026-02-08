@@ -13,7 +13,6 @@
    :isochrone/visible-bands (set config/band-keys)
    :isochrone/loading false
    :geolocation/loading false
-   :map/max-bounds nil
    :viewport/transit-stops []
    :viewport/bounds nil
    :ui/info-open? false
@@ -33,7 +32,6 @@
 (rf/reg-sub :isochrone/loading (fn [db] (:isochrone/loading db)))
 (rf/reg-sub :viewport/transit-stops (fn [db] (:viewport/transit-stops db)))
 (rf/reg-sub :geolocation/loading (fn [db] (:geolocation/loading db)))
-(rf/reg-sub :map/max-bounds (fn [db] (:map/max-bounds db)))
 (rf/reg-sub :ui/info-open? (fn [db] (:ui/info-open? db)))
 
 (rf/reg-fx
@@ -61,12 +59,14 @@
  (fn [db _]
    (update db :ui/info-open? not)))
 
+(def ^:private min-stop-zoom 15)
+
 ;;--- Map Events ---
 
 (rf/reg-event-fx
  :map/set-bounds
  (fn [{:keys [db]} [_ bounds]]
-   (let [zoomed-in? (>= (:zoom bounds) 15)]
+   (let [zoomed-in? (>= (:zoom bounds) min-stop-zoom)]
      (cond-> {:db (cond-> (assoc db :viewport/bounds bounds)
                     (not zoomed-in?) (assoc :viewport/transit-stops []))}
        zoomed-in? (assoc :dispatch [:api/fetch-transit-stops bounds])))))

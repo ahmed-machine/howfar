@@ -29,11 +29,16 @@
   "Width / height ratio of me.png (1629 / 2360)"
   (/ 1629 2360))
 
+(def ^:private origin-icon-base 12)
+(def ^:private origin-icon-zoom-scale 2)
+(def ^:private origin-icon-min-height 16)
+(def ^:private origin-icon-max-height 70)
+
 (defn origin-icon-height
   "Calculate origin marker icon height in pixels based on zoom level"
   [zoom]
-  (let [h (+ 12 (* zoom 2))]
-    (max 16 (min h 70))))
+  (let [h (+ origin-icon-base (* zoom origin-icon-zoom-scale))]
+    (max origin-icon-min-height (min h origin-icon-max-height))))
 
 (defn make-origin-icon
   "Create origin icon at given zoom level"
@@ -46,6 +51,18 @@
                          :iconAnchor [(/ w 2) (/ h 2)]}))))
 
 ;; Default bounds covering NYC metro area isochrone extent (with padding)
+(def default-center [40.7128 -74.0060])
+(def default-zoom 12)
+(def min-zoom 8)
+(def max-tile-zoom 19)
+(def click-tolerance 10)
+(def ^:private click-debounce-ms 300)
+(def ^:private touch-max-dist 15)
+(def ^:private touch-max-elapsed-ms 500)
+(def ^:private isochrone-pane-z-index "399")
+(def ^:private isochrone-pane-opacity "0.35")
+(def ^:private geolocation-zoom 14)
+
 (def default-max-bounds
   {:south 39.5 :west -76
    :north 42 :east -71.75})
@@ -77,9 +94,9 @@
                   dist (js/Math.sqrt (+ (* dx dx) (* dy dy)))
                   elapsed (- (.now js/Date) time)
                   now (.now js/Date)]
-              (when (and (< dist 15)
-                         (< elapsed 500)
-                         (> (- now @last-click-time) 300))
+              (when (and (< dist touch-max-dist)
+                         (< elapsed touch-max-elapsed-ms)
+                         (> (- now @last-click-time) click-debounce-ms))
                 (reset! last-click-time now)
                 (let [rect (.getBoundingClientRect container)
                       cx (- (.-clientX touch) (.-left rect))
@@ -96,11 +113,11 @@
   (let [Map (.-Map L)
         TileLayer (.-TileLayer L)
         {:keys [south west north east]} default-max-bounds
-        map-instance (new Map element-id #js {:center #js [40.7128 -74.0060]
-                                              :zoom 12
-                                              :minZoom 8
+        map-instance (new Map element-id #js {:center (clj->js default-center)
+                                              :zoom default-zoom
+                                              :minZoom min-zoom
                                               :zoomControl true
-                                              :clickTolerance 10
+                                              :clickTolerance click-tolerance
                                               :maxBoundsViscosity 1.0
                                               :maxBounds #js [#js [south west]
                                                               #js [north east]]})]
@@ -108,14 +125,14 @@
     ;; Add tile layer
     (.addTo (new TileLayer tile-layer-url
                            #js {:attribution tile-layer-attribution
-                                :maxZoom 19})
+                                :maxZoom max-tile-zoom})
             map-instance)
 
     ;; Handle map click (debounced to prevent double-fire with touch fallback)
     (.on map-instance "click"
          (fn [^js e]
            (let [now (.now js/Date)]
-             (when (> (- now @last-click-time) 300)
+             (when (> (- now @last-click-time) click-debounce-ms)
                (reset! last-click-time now)
                (let [^js latlng (.-latlng e)]
                  (rf/dispatch [:map/click (.-lat latlng) (.-lng latlng)]))))))
@@ -138,12 +155,12 @@
              (js/setTimeout
                (fn []
                  (rf/dispatch [:map/set-bounds (bounds->map map-instance)]))
-               300))))
+               click-debounce-ms))))
 
     ;; Create isolated pane for isochrone layers (painter's algorithm)
     (let [pane (.createPane map-instance "isochrone")]
-      (set! (.. pane -style -zIndex) "399")
-      (set! (.. pane -style -opacity) "0.35"))
+      (set! (.. pane -style -zIndex) isochrone-pane-z-index)
+      (set! (.. pane -style -opacity) isochrone-pane-opacity))
 
     ;; Transit line layer (below isochrones)
     (lines/create-pane map-instance)
@@ -162,20 +179,8 @@
  :geolocation/pan-map
  (fn [{:keys [lat lng]}]
    (when-let [^js m @leaflet-map]
-     (.setView m #js [lat lng] 14))))
+     (.setView m #js [lat lng] geolocation-zoom))))
 
-;; Side-effect: set max bounds on map
-(rf/reg-fx
- :map/set-max-bounds
- (fn [{:keys [north south east west]}]
-   (when (and north south east west)
-     (when-let [^js m @leaflet-map]
-       (let [LatLngBounds (.-LatLngBounds L)
-             pad 0.05
-             bounds (new LatLngBounds
-                         #js [(- south pad) (- west pad)]
-                         #js [(+ north pad) (+ east pad)])]
-         (.setMaxBounds m bounds))))))
 
 (defn update-origin-marker
   "Update or create origin marker"

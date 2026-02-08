@@ -85,21 +85,6 @@
  (fn [db [_ response]]
    (assoc db :viewport/transit-stops (:stops response))))
 
-;; Fetch isochrone bounding box
-(rf/reg-event-fx
- :api/fetch-bbox
- (fn [_ _]
-   {:http-request
-    {:url (api-url "/api/bbox")
-     :on-success [:api/bbox-loaded]
-     :on-failure [:api/request-failed :bbox]}}))
-
-(rf/reg-event-fx
- :api/bbox-loaded
- (fn [{:keys [db]} [_ response]]
-   {:db (assoc db :map/max-bounds (:bbox response))
-    :map/set-max-bounds (:bbox response)}))
-
 ;; Error handling
 (rf/reg-event-db
  :api/request-failed
