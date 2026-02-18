@@ -181,12 +181,12 @@
              :contact
              [:div
               [:p "i'm ahmed, feel free to email me with any thoughts, feelings, and spirited takes at "
-               [:a {:href "mailto:mapbh.org@gmail.com"} "mapbh.org@gmail.com"]]
-              [:p "follow me on "
+               [:a {:href "mailto:mapbh.org@gmail.com"} "mapbh.org@gmail.com"]
+               ". follow me on "
                [:a {:href "https://www.instagram.com/map_bh" :target "_blank" :rel "noopener noreferrer"} "ig"]
-               ", or "
-               [:a {:href "https://x.com/map_bh" :target "_blank" :rel "noopener noreferrer"} "x"]]
-              [:p "if you'd like to help cover server costs, "
+               " or "
+               [:a {:href "https://x.com/map_bh" :target "_blank" :rel "noopener noreferrer"} "x"]
+               ". if you'd like to help cover server costs, "
                [:a {:href "https://buymeacoffee.com/mapbh" :target "_blank" :rel "noopener noreferrer"} "buy me a mocha"] " \u2615"]])]]])))
 
 (defn geolocate-button
