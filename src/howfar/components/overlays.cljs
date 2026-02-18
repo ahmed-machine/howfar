@@ -185,7 +185,9 @@
               [:p "follow me on "
                [:a {:href "https://www.instagram.com/map_bh" :target "_blank" :rel "noopener noreferrer"} "ig"]
                ", or "
-               [:a {:href "https://x.com/map_bh" :target "_blank" :rel "noopener noreferrer"} "x"]]])]]])))
+               [:a {:href "https://x.com/map_bh" :target "_blank" :rel "noopener noreferrer"} "x"]]
+              [:p "if you'd like to help cover server costs, "
+               [:a {:href "https://buymeacoffee.com/mapbh" :target "_blank" :rel "noopener noreferrer"} "buy me a mocha"] " \u2615"]])]]])))
 
 (defn geolocate-button
   "Geolocate button - crosshair icon, triggers browser geolocation"
