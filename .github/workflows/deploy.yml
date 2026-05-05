@@ -63,8 +63,7 @@ jobs:
             ${{ secrets.DEPLOY_USER || 'root' }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
           set -e
           chown -R howfar:howfar /opt/howfar/app
-          restorecon -R /opt/howfar/app/public
-          cd /opt/howfar/app && sudo -u howfar clj -P
+          cd /opt/howfar/app && sudo -u howfar clojure -P
           systemctl restart howfar-backend
           for i in 1 2 3 4 5 6; do
             sleep 5
