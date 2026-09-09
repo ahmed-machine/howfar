@@ -22,8 +22,10 @@
      :west  (.-lng (.getSouthWest bounds))
      :zoom  (.getZoom map-instance)}))
 
-(def tile-layer-url "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png")
-(def tile-layer-attribution "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> &copy; <a href=\"https://carto.com/attributions\">CARTO</a>")
+;; Note Esri tile URLs are {z}/{y}/{x}, not the usual {z}/{x}/{y}.
+(def base-layer-url "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}")
+(def reference-layer-url "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}")
+(def tile-layer-attribution "Tiles &copy; <a href=\"https://www.esri.com/\">Esri</a> &mdash; Esri, HERE, Garmin, &copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors")
 
 (def ^:private origin-icon-aspect
   "Width / height ratio of me.png (1629 / 2360)"
@@ -55,6 +57,15 @@
 (def default-zoom 12)
 (def min-zoom 8)
 (def max-tile-zoom 19)
+(def ^:private max-native-tile-zoom
+  "Esri serves Light Gray tiles natively up to z16; above that the base
+   service returns 'map data not yet available' filler, so upscale z16 instead."
+  16)
+(def ^:private reference-min-zoom
+  "Hide the reference (place label) layer when zoomed out so the isochrone
+   reads cleanly; z13 is the highest zoom at which Esri still draws
+   neighborhood labels over NYC (z15+ reference tiles are empty)."
+  13)
 (def click-tolerance 10)
 (def ^:private click-debounce-ms 300)
 (def ^:private touch-max-dist 15)
@@ -122,10 +133,16 @@
                                               :maxBounds #js [#js [south west]
                                                               #js [north east]]})]
 
-    ;; Add tile layer
-    (.addTo (new TileLayer tile-layer-url
+    ;; Basemap: Esri Light Gray base (always on) + reference labels (zoomed in only)
+    (.addTo (new TileLayer base-layer-url
                            #js {:attribution tile-layer-attribution
-                                :maxZoom max-tile-zoom})
+                                :maxZoom max-tile-zoom
+                                :maxNativeZoom max-native-tile-zoom})
+            map-instance)
+    (.addTo (new TileLayer reference-layer-url
+                           #js {:minZoom reference-min-zoom
+                                :maxZoom max-tile-zoom
+                                :maxNativeZoom max-native-tile-zoom})
             map-instance)
 
     ;; Handle map click (debounced to prevent double-fire with touch fallback)
